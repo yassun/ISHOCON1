@@ -106,8 +106,9 @@ class Ishocon1::WebApp < Sinatra::Base
   get '/' do
     page = params[:page].to_i || 0
 
-    # TODO OFFSETじゃなくて betweenとかで取る。カラムを指定する。
-    products = db.xquery("SELECT id, name, image_path, price, description FROM products ORDER BY id DESC LIMIT 50 OFFSET #{page * 50}")
+    to = 10000 - (page * 50)
+    from = 10000 - (50 + page * 50) + 1
+    products = db.xquery("SELECT id, name, image_path, price, description FROM products WHERE id BETWEEN #{from} AND #{to} ORDER BY id DESC")
 
     product_ids = products.map { |p| p[:id] }
     cmt_query = <<SQL
