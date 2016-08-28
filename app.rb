@@ -106,6 +106,14 @@ SQL
       puts "end load top_comments_pages"
     end
 
+    def cache_users
+      return if dalli.get("user_1")
+
+      db.xquery('SELECT * FROM users').each do | u |
+        dalli.set("user_#{u[:id]}", u)
+      end
+    end
+
     def time_now_db
       Time.now - 9 * 60 * 60
     end
@@ -121,7 +129,7 @@ SQL
     end
 
     def current_user
-      db.xquery('SELECT * FROM users WHERE id = ?', session[:user_id]).first
+      dalli.get("user_#{session[:user_id]}")
     end
 
     def buy_product(product_id, user_id)
@@ -184,7 +192,7 @@ SQL
       total_pay += product[:price] || 0
     end
 
-    user = db.xquery('SELECT * FROM users WHERE id = ?', params[:user_id]).first
+    user = dalli.get("user_#{params[:user_id]}")
     erb :mypage, locals: { products: products, user: user, total_pay: total_pay }
   end
 
@@ -207,7 +215,7 @@ SQL
     arr ||= []
     arr.unshift ( { content: params[:content], user_name: user[:name] } )
     dalli.set(key, arr)
-    redirect "/users/#{current_user[:id]}"
+    redirect "/users/#{user[:id]}"
   end
 
   get '/initialize' do
@@ -218,9 +226,12 @@ SQL
 
     # for TopPage Product
     cache_top_page_products
-    
+
     # for TopPage Comments
     cache_top_page_comments
+
+    # for Users
+    cache_users
 
     "Finish"
   end
