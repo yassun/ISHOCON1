@@ -51,7 +51,7 @@ class Ishocon1::WebApp < Sinatra::Base
 
     def dalli
       return Thread.current[:ishocon1_mem] if Thread.current[:ishocon1_mem]
-      client = Dalli::Client.new('127.0.0.1:11211',{:expires_in => 60*100})
+      client = Dalli::Client.new('127.0.0.1:11211',{:expires_in => 0})
       Thread.current[:ishocon1_mem] = client
       client
     end
@@ -165,6 +165,16 @@ SQL
       puts "end load user_buy_histories"
     end
 
+    def cache_histories
+      return if dalli.get("histories_p_1_u_1")
+
+      puts "start load cache_histories"
+      db.xquery('SELECT product_id, user_id FROM histories').each do |h|
+        dalli.set("histories_p_#{h[:product_id]}_u_#{h[:user_id]}", true)
+      end
+      puts "end load cache_histories"
+    end
+
     def time_now_db
       Time.now - 9 * 60 * 60
     end
@@ -200,14 +210,16 @@ SQL
       })
       dalli.set(key, arr)
 
+      # histories
+      dalli.set("histories_p_#{product_id}_u_#{user_id}", true)
+
       db.xquery('INSERT INTO histories (product_id, user_id, created_at) VALUES (?, ?, ?)', \
         product_id, user_id, time_now_db)
     end
 
     def already_bought?(product_id)
       return false unless current_user
-      h = db.xquery('SELECT * FROM histories WHERE product_id = ? AND user_id = ?', product_id, current_user[:id]).first
-      !(h.nil?)
+      dalli.get("histories_p_#{product_id}_u_#{current_user[:id]}") ? true : false
     end
   end
 
@@ -296,6 +308,9 @@ SQL
 
     # for user_buy_histories
     cache_user_buy_histories
+
+    # for histories
+    cache_histories
 
     "Finish"
   end
