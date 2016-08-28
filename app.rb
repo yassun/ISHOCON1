@@ -2,6 +2,7 @@ require 'sinatra/base'
 require 'mysql2'
 require 'mysql2-cs-bind'
 require 'erubis'
+require 'dalli'
 
 module Ishocon1
   class AuthenticationError < StandardError; end
@@ -40,6 +41,13 @@ class Ishocon1::WebApp < Sinatra::Base
       )
       client.query_options.merge!(symbolize_keys: true)
       Thread.current[:ishocon1_db] = client
+      client
+    end
+
+    def dalli
+      return Thread.current[:ishocon1_mem] if Thread.current[:ishocon1_mem]
+      client = Dalli::Client.new('127.0.0.1:11211')
+      Thread.current[:ishocon1_mem] = Dalli::Client.new('127.0.0.1:11211')
       client
     end
 
