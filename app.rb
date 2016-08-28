@@ -116,6 +116,15 @@ SQL
       puts "end load cache_users"
     end
 
+    def cache_products
+      return if dalli.get("product_1")
+      puts "start load cache_products"
+      db.xquery('SELECT * FROM products').each do | p |
+        dalli.set("product_#{p[:id]}", p)
+      end
+      puts "end load cache_products"
+    end
+
     def time_now_db
       Time.now - 9 * 60 * 60
     end
@@ -199,7 +208,7 @@ SQL
   end
 
   get '/products/:product_id' do
-    product = db.xquery('SELECT * FROM products WHERE id = ?', params[:product_id]).first
+    product = dalli.get("product_#{params[:product_id]}")
     erb :product, locals: { product: product }
   end
 
@@ -234,6 +243,9 @@ SQL
 
     # for Users
     cache_users
+
+    # for Products
+    cache_products
 
     "Finish"
   end
