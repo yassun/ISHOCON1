@@ -136,7 +136,7 @@ WHERE
 	p.id IN (?)
 ORDER BY 
 	p.id ASC,
-	c.created_at DESC
+	c.id DESC
 SQL
 
     # TODO コメント数を取りたいがためにViewで発行 N+1しててヤバイ
