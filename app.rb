@@ -125,6 +125,45 @@ SQL
       puts "end load cache_products"
     end
 
+    def cache_user_buy_histories
+      return if dalli.get("user_1_buy_histories")
+
+      puts "start load user_buy_histories"
+
+      products_query = <<SQL
+SELECT
+  h.user_id as h_user_id,
+  p.id as p_id,
+  p.name as p_name,
+  p.description as p_description,
+  p.image_path as p_image_path,
+  p.price as p_price,
+  h.created_at as h_created_at
+FROM
+   histories as h
+INNER JOIN
+ products as p
+ON h.product_id = p.id
+ORDER BY h.user_id ASC, h.id DESC
+SQL
+      db.xquery(products_query).each do | p |
+        key = "user_#{p[:h_user_id]}_buy_histories"
+        arr = dalli.get(key)
+        arr ||= []
+        arr << {
+          id: p[:p_id],
+          name: p[:p_name],
+          description: p[:p_description],
+          image_path: p[:p_image_path],
+          price: p[:p_price],
+          created_at: p[:h_created_at]
+        }
+        dalli.set(key, arr)
+      end
+
+      puts "end load user_buy_histories"
+    end
+
     def time_now_db
       Time.now - 9 * 60 * 60
     end
@@ -246,6 +285,12 @@ SQL
 
     # for Products
     cache_products
+
+    # for user_buy_histories
+    cache_user_buy_histories
+
+    pp dalli.get("user_1_buy_histories")
+    pp dalli.get("user_5000_buy_histories")
 
     "Finish"
   end
