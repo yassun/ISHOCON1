@@ -134,11 +134,6 @@ SQL
       h = db.xquery('SELECT * FROM histories WHERE product_id = ? AND user_id = ?', product_id, current_user[:id]).first
       !(h.nil?)
     end
-
-    def create_comment(product_id, user_id, content)
-      db.xquery('INSERT INTO comments (product_id, user_id, content, created_at) VALUES (?, ?, ?, ?)', \
-        product_id, user_id, content, time_now_db)
-    end
   end
 
   error Ishocon1::AuthenticationError do
@@ -195,8 +190,7 @@ SQL
 
   get '/products/:product_id' do
     product = db.xquery('SELECT * FROM products WHERE id = ?', params[:product_id]).first
-    comments = db.xquery('SELECT * FROM comments WHERE product_id = ?', params[:product_id])
-    erb :product, locals: { product: product, comments: comments }
+    erb :product, locals: { product: product }
   end
 
   post '/products/buy/:product_id' do
