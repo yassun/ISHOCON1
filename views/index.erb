@@ -17,9 +17,10 @@
             <p><%= product[:price] %>円</p>
             <h4>商品説明</h4>
             <p><%= product[:description][0..69] %>…</p>
-            <h4><%= comments[product[:id].to_s].size %>件のレビュー</h4>
+	    <% comments = dalli.get("product_#{product[:id]}_comments") %>
+            <h4><%= comments.size %>件のレビュー</h4>
             <ul>
-              <% comments[product[:id].to_s].each_with_index do |comment, index| %>
+              <% comments.each_with_index do |comment, index| %>
                 <% break if index > 4 %>
 		<li><%= comment[:content].size > 25 ? "#{comment[:content][0..24]}…" : comment[:content] %> by <%= comment[:user_name] %></li>
               <% end %>

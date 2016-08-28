@@ -3,13 +3,17 @@ require 'mysql2'
 require 'mysql2-cs-bind'
 require 'erubis'
 require 'dalli'
-
+require 'rack-lineprof'
+ 
 module Ishocon1
   class AuthenticationError < StandardError; end
   class PermissionDenied < StandardError; end
 end
 
 class Ishocon1::WebApp < Sinatra::Base
+  #use Rack::Lineprof, profile: 'app.rb'
+
+
   session_secret = ENV['ISHOCON1_SESSION_SECRET'] || 'showwin_happy'
   use Rack::Session::Cookie, key: 'rack.session', secret: session_secret
   set :erb, escape_html: true
@@ -61,6 +65,45 @@ class Ishocon1::WebApp < Sinatra::Base
         ah_p = products.map { |p| { id: p[:id], name: p[:name], image_path: p[:image_path], price: p[:price], description:p[:description] } }
         dalli.set("top_products_page_#{page}", ah_p)
       end
+      puts "end load top_products_pages"
+    end
+
+    def cache_top_page_comments
+      return if dalli.get("product_1_comments")
+
+      puts "start load top_comments_pages"
+      cmt_query = <<SQL
+SELECT
+       p.id as p_id,
+        c.id as c_id,
+        c.content as c_content,
+        u.name as u_name
+FROM
+       products as p
+INNER JOIN
+       comments as c
+ON
+       c.product_id = p.id
+INNER JOIN
+       users as u
+ON
+       c.user_id = u.id
+ORDER BY
+       p.id ASC,
+       c.id DESC
+SQL
+      # こんなのをつくる
+      # product_1_comments = [{content:xx, user_name:xx},content:}]
+      cmts = db.xquery(cmt_query)
+      cmts.map do | c |
+        key = "product_#{c[:p_id].to_s}_comments"
+        arr = dalli.get(key)
+        arr ||= []
+        arr << { content: c[:c_content], user_name: c[:u_name] }
+        dalli.set(key, arr)
+      end
+
+      puts "end load top_comments_pages"
     end
 
     def time_now_db
@@ -125,45 +168,8 @@ class Ishocon1::WebApp < Sinatra::Base
 
   get '/' do
     page = params[:page].to_i || 0
-
     products = dalli.get("top_products_page_#{page}")
-    product_ids = products.map { |p| p[:id] }
-    cmt_query = <<SQL
-SELECT 
-	p.id as p_id, 
-        c.id as c_id,
-        c.content as c_content,
-        u.name as u_name
-FROM 
-	products as p
-INNER JOIN 
-	comments as c
-ON 
-	c.product_id = p.id
-INNER JOIN 
-	users as u
-ON 
-	c.user_id = u.id
-WHERE 
-	p.id IN (?)
-ORDER BY 
-	p.id ASC,
-	c.id DESC
-SQL
-
-    # TODO コメント数を取りたいがためにViewで発行 N+1しててヤバイ
-    # commentsにカウンターキャッシュレコードを入れるとか。
-    # キャッシュするとか。配列サイズを数えるだけになったのでいらないかも？
-    # cmt_count_query = 'SELECT count(*) as count FROM comments WHERE product_id = ?'
-    cmts = db.xquery(cmt_query, product_ids)
-    c_h = {}
-    cmts.map do | c | 
-      key = c[:p_id].to_s
-      c_h[key] ||= []
-      c_h[key] << { id: c[:c_id], content: c[:c_content], user_name: c[:u_name] }
-    end
-
-    erb :index, locals: { products: products, comments: c_h }
+    erb :index, locals: { products: products}
   end
 
   get '/users/:user_id' do
@@ -201,7 +207,12 @@ SQL
 
   post '/comments/:product_id' do
     authenticated!
-    create_comment(params[:product_id], current_user[:id], params[:content])
+    user = current_user
+    key = "product_#{params[:product_id].to_s}_comments"
+    arr = dalli.get(key)
+    arr ||= []
+    arr.unshift ( { content: params[:content], user_name: user[:name] } )
+    dalli.set(key, arr)
     redirect "/users/#{current_user[:id]}"
   end
 
@@ -213,6 +224,9 @@ SQL
 
     # for TopPage Product
     cache_top_page_products
+    
+    # for TopPage Comments
+    cache_top_page_comments
 
     "Finish"
   end
