@@ -156,12 +156,13 @@ SQL
 
   get '/users/:user_id' do
     products_query = <<SQL
-SELECT p.id, p.name, p.description, p.image_path, p.price, h.created_at
-FROM histories as h
-LEFT OUTER JOIN products as p
+SELECT
+  p.id, p.name, p.description, p.image_path, p.price, h.created_at
+FROM
+  (SELECT id, product_id, created_at FROM histories WHERE user_id = ? ORDER BY id DESC ) as h
+INNER JOIN
+ products as p
 ON h.product_id = p.id
-WHERE h.user_id = ?
-ORDER BY h.id DESC
 SQL
     products = db.xquery(products_query, params[:user_id])
 
