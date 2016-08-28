@@ -111,19 +111,47 @@ class Ishocon1::WebApp < Sinatra::Base
 
   get '/' do
     page = params[:page].to_i || 0
-    products = db.xquery("SELECT * FROM products ORDER BY id DESC LIMIT 50 OFFSET #{page * 50}")
-    cmt_query = <<SQL
-SELECT *
-FROM comments as c
-INNER JOIN users as u
-ON c.user_id = u.id
-WHERE c.product_id = ?
-ORDER BY c.created_at DESC
-LIMIT 5
-SQL
-    cmt_count_query = 'SELECT count(*) as count FROM comments WHERE product_id = ?'
 
-    erb :index, locals: { products: products, cmt_query: cmt_query, cmt_count_query: cmt_count_query }
+    # TODO OFFSETじゃなくて betweenとかで取る。カラムを指定する。
+    products = db.xquery("SELECT id, name, image_path, price, description FROM products ORDER BY id DESC LIMIT 50 OFFSET #{page * 50}")
+
+    product_ids = products.map { |p| p[:id] }
+    cmt_query = <<SQL
+SELECT 
+	p.id as p_id, 
+        c.id as c_id,
+        c.content as c_content,
+        u.name as u_name
+FROM 
+	products as p
+INNER JOIN 
+	comments as c
+ON 
+	c.product_id = p.id
+INNER JOIN 
+	users as u
+ON 
+	c.user_id = u.id
+WHERE 
+	p.id IN (?)
+ORDER BY 
+	p.id ASC,
+	c.created_at DESC
+SQL
+
+    # TODO コメント数を取りたいがためにViewで発行 N+1しててヤバイ
+    # commentsにカウンターキャッシュレコードを入れるとか。
+    # キャッシュするとか。配列サイズを数えるだけになったのでいらないかも？
+    # cmt_count_query = 'SELECT count(*) as count FROM comments WHERE product_id = ?'
+    cmts = db.xquery(cmt_query, product_ids)
+    c_h = {}
+    cmts.map do | c | 
+      key = c[:p_id].to_s
+      c_h[key] ||= []
+      c_h[key] << { id: c[:c_id], content: c[:c_content], user_name: c[:u_name] }
+    end
+
+    erb :index, locals: { products: products, comments: c_h }
   end
 
   get '/users/:user_id' do
