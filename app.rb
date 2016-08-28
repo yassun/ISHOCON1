@@ -4,6 +4,7 @@ require 'mysql2-cs-bind'
 require 'erubis'
 require 'dalli'
 require 'rack-lineprof'
+require 'pp'
  
 module Ishocon1
   class AuthenticationError < StandardError; end
@@ -50,8 +51,8 @@ class Ishocon1::WebApp < Sinatra::Base
 
     def dalli
       return Thread.current[:ishocon1_mem] if Thread.current[:ishocon1_mem]
-      client = Dalli::Client.new('127.0.0.1:11211')
-      Thread.current[:ishocon1_mem] = Dalli::Client.new('127.0.0.1:11211')
+      client = Dalli::Client.new('127.0.0.1:11211',{:expires_in => 60*100})
+      Thread.current[:ishocon1_mem] = client
       client
     end
 
@@ -183,6 +184,22 @@ SQL
     end
 
     def buy_product(product_id, user_id)
+
+      # ユーザー別履歴ページ キャッシュ
+      p = db.xquery('SELECT * FROM products WHERE id = ?', product_id).first
+      key = "user_#{user_id}_buy_histories"
+      arr = dalli.get(key)
+      arr ||= []
+      arr.unshift ( {
+          id: p[:id],
+          name: p[:name],
+          description: p[:description],
+          image_path: p[:image_path],
+          price: p[:price],
+          created_at: time_now_db
+      })
+      dalli.set(key, arr)
+
       db.xquery('INSERT INTO histories (product_id, user_id, created_at) VALUES (?, ?, ?)', \
         product_id, user_id, time_now_db)
     end
@@ -226,16 +243,7 @@ SQL
   end
 
   get '/users/:user_id' do
-    products_query = <<SQL
-SELECT
-  p.id, p.name, p.description, p.image_path, p.price, h.created_at
-FROM
-  (SELECT id, product_id, created_at FROM histories WHERE user_id = ? ORDER BY id DESC ) as h
-INNER JOIN
- products as p
-ON h.product_id = p.id
-SQL
-    products = db.xquery(products_query, params[:user_id])
+    products = dalli.get("user_#{params[:user_id]}_buy_histories")
 
     total_pay = 0
     products.each do |product|
@@ -288,9 +296,6 @@ SQL
 
     # for user_buy_histories
     cache_user_buy_histories
-
-    pp dalli.get("user_1_buy_histories")
-    pp dalli.get("user_5000_buy_histories")
 
     "Finish"
   end
