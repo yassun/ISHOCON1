@@ -51,7 +51,7 @@ class Ishocon1::WebApp < Sinatra::Base
 
     def dalli
       return Thread.current[:ishocon1_mem] if Thread.current[:ishocon1_mem]
-      client = Dalli::Client.new('127.0.0.1:11211',{:expires_in => 0})
+      client = Dalli::Client.new('127.0.0.1:11211',{:expires_in => 259200})
       Thread.current[:ishocon1_mem] = client
       client
     end
@@ -165,8 +165,19 @@ SQL
       puts "end load user_buy_histories"
     end
 
+<<<<<<< HEAD
     def cache_histories
       return if dalli.get("histories_p_1_u_1")
+
+      puts "start load cache_histories"
+      db.xquery('SELECT product_id, user_id FROM histories').each do |h|
+        dalli.set("histories_p_#{h[:product_id]}_u_#{h[:user_id]}", true)
+      end
+      puts "end load cache_histories"
+    end
+
+    def cache_histories
+      return if dalli.get("histories_p_1167_u_5000")
 
       puts "start load cache_histories"
       db.xquery('SELECT product_id, user_id FROM histories').each do |h|
