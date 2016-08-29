@@ -12,7 +12,12 @@
             <a href="/products/<%= product[:id] %>"><%= product[:name] %></a>
           </div>
           <div class="panel-body">
-            <a href="/products/<%= product[:id] %>"><img src="<%= product[:image_path] %>" class="img-responsive" /></a>
+            <a href="/products/<%= product[:id] %>">
+<script id="img">
+document.write('<img src="<%= product[:image_path] %>" class="img-responsive" />');
+script = document.getElementById('img');
+script.parentNode.removeChild(script);
+</script></a>
             <h4>価格</h4>
             <p><%= product[:price] %>円</p>
             <h4>商品説明</h4>
