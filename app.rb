@@ -175,11 +175,22 @@ SQL
       puts "end load cache_histories"
     end
 
+    def cache_authenticate
+      return if dalli.get("authenticate_ishocon4998@isho.con")
+      puts "start load cache_authenticate"
+      db.xquery('SELECT * FROM users').each do |u|
+        dalli.set("authenticate_#{u[:email]}", u)
+      end
+      puts "end load cache_authenticate"
+    end
+
     def time_now_db
       Time.now - 9 * 60 * 60
     end
 
     def authenticate(email, password)
+      #user = dalli.get("authenticate_#{email}")
+      #
       user = db.xquery('SELECT * FROM users WHERE email = ?', email).first
       fail Ishocon1::AuthenticationError unless user[:password] == password
       session[:user_id] = user[:id]
@@ -311,6 +322,9 @@ SQL
 
     # for histories
     cache_histories
+
+    # for /authenticate
+    #cache_authenticate
 
     "Finish"
   end
