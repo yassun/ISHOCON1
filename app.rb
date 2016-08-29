@@ -165,19 +165,6 @@ SQL
       puts "end load user_buy_histories"
     end
 
-<<<<<<< HEAD
-    def cache_histories
-      return if dalli.get("histories_p_1_u_1")
-
-      puts "start load cache_histories"
-      db.xquery('SELECT product_id, user_id FROM histories').each do |h|
-        dalli.set("histories_p_#{h[:product_id]}_u_#{h[:user_id]}", true)
-      end
-      puts "end load cache_histories"
-    end
-
-||||||| merged common ancestors
-=======
     def cache_histories
       return if dalli.get("histories_p_1167_u_5000")
 
@@ -188,7 +175,6 @@ SQL
       puts "end load cache_histories"
     end
 
->>>>>>> 4cc2fc1726f745cc7bfb6de66e6f91a7a2e036ef
     def time_now_db
       Time.now - 9 * 60 * 60
     end
