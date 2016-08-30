@@ -3,7 +3,7 @@ require 'mysql2'
 require 'mysql2-cs-bind'
 require 'erubis'
 require 'dalli'
-require 'rack-lineprof'
+#require 'rack-lineprof'
 require 'pp'
  
 module Ishocon1
@@ -51,7 +51,7 @@ class Ishocon1::WebApp < Sinatra::Base
 
     def dalli
       return Thread.current[:ishocon1_mem] if Thread.current[:ishocon1_mem]
-      client = Dalli::Client.new('127.0.0.1:11211',{:expires_in => 259200})
+      client = Dalli::Client.new('127.0.0.1:11211')
       Thread.current[:ishocon1_mem] = client
       client
     end
